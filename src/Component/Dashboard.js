@@ -8,7 +8,7 @@ const Dashboard = ({ authToken }) => {
         const fetchData = async () => {
             try {
                 const response = await axios.get(
-                    "https://your-instance.service-now.com/api/now/table/concert_entry",
+                    "https://dev208979.service-now.com",
                     {
                         headers: {
                             Authorization: `Bearer ${authToken}`,
