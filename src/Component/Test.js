@@ -1,6 +1,6 @@
 // STRY0984137 - Blake - Updated date range to consider assessments taken from March 1 - January 31 of the current year
 var today = new GlideDateTime();
-var currentYear = today.getYear();
+var currentYear = today.getYearUTC(); 
 var currentYearStartDate = new GlideDateTime(currentYear + "-03-01 00:00:00");
 var currentYearEndDate = new GlideDateTime(currentYear + "-01-31 23:59:59");
 
@@ -8,7 +8,7 @@ grAsmt.addQuery("taken_on", ">=", currentYearStartDate);
 grAsmt.addQuery("taken_on", "<=", currentYearEndDate);
 // End STRY0984137
 
-// STRY0984137 - Blake - Updated date range for issue records to consider March 1 of last year to February 28 (or 29 if leap year) of the current year
+// STRY0984137 - Blake - Updated date range for issue records to consider March 1 of last year to February 28 (or 29 if leap year) of current year
 var lastYear = currentYear - 1;
 var lastYearStartDate = new GlideDateTime(lastYear + "-03-01 00:00:00");
 var lastYearEndDate = new GlideDateTime(lastYear + "-02-28 23:59:59");
@@ -23,5 +23,3 @@ grIssue.addQuery('item', current.getUniqueValue());
 grIssue.addQuery('opened_at', '>=', lastYearStartDate);
 grIssue.addQuery('opened_at', '<=', lastYearEndDate);
 // End STRY0984137
-
-//Function getYear is not allowed in scope sn_compliance. Use either getYearUTC() or getYearLocalTime() instead
