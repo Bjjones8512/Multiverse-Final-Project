@@ -23,3 +23,5 @@ grIssue.addQuery('item', current.getUniqueValue());
 grIssue.addQuery('opened_at', '>=', lastYearStartDate);
 grIssue.addQuery('opened_at', '<=', lastYearEndDate);
 // End STRY0984137
+
+//Function getYear is not allowed in scope sn_compliance. Use either getYearUTC() or getYearLocalTime() instead
