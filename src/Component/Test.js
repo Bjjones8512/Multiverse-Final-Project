@@ -54,5 +54,21 @@
     // Update the SOX risk score field value with finalized riskscore.
     current.u_sox_risk_score = riskScore;
 
+    /*I want '4' to be added to the SOX Risk Score' on Control record, if any Issue record is created for the Control from March 1 last year to February 28 (February 29 if leap year) current year.
+
+Examples:
+1. When calculation happens on Jan 15 2025 then we need to consider Mar 1 2023 to Feb 29 2024.
+2. When calculation happens on Mar 3 2025 then we need to consider Mar 1 2024 to Feb 28 2025.
+
+Also, I want average 'SOX Risk Score' of the Assessment Instances which were taken in current year (March 1-Jan 31).
+I know this story is complete when '4' is added to the SOX Risk Score' on Control record, if any Issue record is created for the Control from March 1 last year to February 28 (February 29 if leap year) current year.
+
+Examples:
+1. When calculation happens on Jan 15 2025 then we need to consider Mar 1 2023 to Feb 29 2024.
+2. When calculation happens on Mar 3 2025 then we need to consider Mar 1 2024 to Feb 28 2025.
+
+Also, I want to add average 'SOX Risk Score' of the Assessment Instances which were taken in current year(March 1-Jan 31). 
+*/
+
 
 })(current, previous);
