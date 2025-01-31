@@ -1,74 +1,66 @@
-(function executeRule(current, previous /*null when async*/ ) {
+var riskScore = 0; // Initialize the variable to 0
 
-    /*
-     This BR is created as part of STRY0605832. This BR updates the SOX Risk score on associated control record.
-    The Final Risk score will be sum of below :
-    a) Average of all completed control attestation's sox risk score related to control.
-    b) If the control nature is "Manual" or "IT Dependent", add 2
-    c) If the control's primary entity is a process, add the risk rating found on that business process record (SOX Business Process Risk Rating Score)
-    d) If the Control has had any issues opened in the last year, add 4
-     */
-    var riskScore = 0; // Initialize the variable to 0
+// Fetch the Average of all completed control attestation's sox risk score related to control
+var grAsmt = new GlideAggregate('asmt_assessment_instance');
+grAsmt.addQuery("sn_grc_item", current.getUniqueValue());
 
-    // Fetch the Average of all completed control attestation's sox risk score related to control
+// STRY0984137 - Blake - Updated date range to consider assessments taken from March 1 - January 31 of the current year
+var today = new GlideDateTime();
+var currentYear = today.getYear();
+var currentYearStartDate = new GlideDateTime(currentYear + "-03-01 00:00:00");
+var currentYearEndDate = new GlideDateTime(currentYear + "-01-31 23:59:59");
 
-    var grAsmt = new GlideAggregate('asmt_assessment_instance');
-    grAsmt.addQuery("sn_grc_item", current.getUniqueValue());
-	grAsmt.addEncodedQuery("taken_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()"); // Added per STRY0951832
-    grAsmt.query("state", "complete");
-    grAsmt.setGroup(false);
-    grAsmt.addAggregate('AVG', 'u_sox_risk_score');
-    grAsmt.query();
-    if (grAsmt.next()) {
-        var avgRiskScore = grAsmt.getAggregate('AVG', 'u_sox_risk_score');
-        riskScore = parseInt(avgRiskScore); // set the average sox risk score value to riskscore variable
+grAsmt.addQuery("taken_on", ">=", currentYearStartDate);
+grAsmt.addQuery("taken_on", "<=", currentYearEndDate);
+// End STRY0984137
+
+grAsmt.query("state", "complete");
+grAsmt.setGroup(false);
+grAsmt.addAggregate('AVG', 'u_sox_risk_score');
+grAsmt.query();
+if (grAsmt.next()) {
+    var avgRiskScore = grAsmt.getAggregate('AVG', 'u_sox_risk_score');
+    riskScore = parseInt(avgRiskScore); // set the average sox risk score value to riskscore variable
+}
+
+// Check if control's nature is either "manual" or "IT Dependent - Manual". If it is then add 2 to risk score variable	
+if (current.u_nature == 'Manual' || current.u_nature == 'IT Dependent - Manual') {
+    riskScore += 2;
+}
+
+// Check if primary entity linked with control is a business process record. If it is then add the risk score on business process record to riskscore variable
+var grEnt = new GlideRecord("sn_grc_profile");
+grEnt.addQuery("sys_id", current.profile);
+grEnt.addQuery("table", "cmdb_ci_business_process");
+grEnt.query();
+if (grEnt.next()) {
+    var grBP = new GlideRecord("cmdb_ci_business_process");
+    grBP.addQuery("sys_id", grEnt.applies_to);
+    grBP.query();
+    if (grBP.next()) {
+        riskScore += grBP.u_sox_business_process_risk_rating_score;
     }
+}
 
-    // Check if control's nature is either "manual" or "IT Dependent - Manual". If it is then add 2 to risk score variable	
-    if (current.u_nature == 'Manual' || current.u_nature == 'IT Dependent - Manual') {
-        riskScore += 2;
-    }
+// STRY0984137 - Blake - Updated date range for issue records to consider March 1 of last year to February 28 (or 29 if leap year) of current year
+var lastYear = currentYear - 1;
+var lastYearStartDate = new GlideDateTime(lastYear + "-03-01 00:00:00");
+var lastYearEndDate = new GlideDateTime(lastYear + "-02-28 23:59:59");
 
-    // Check if primary entity linked with control is a business process record. If it is then add the risk score on business process record to riskscore variable
-    var grEnt = new GlideRecord("sn_grc_profile");
-    grEnt.addQuery("sys_id", current.profile);
-    grEnt.addQuery("table", "cmdb_ci_business_process");
-    grEnt.query();
-    if (grEnt.next()) {
-        var grBP = new GlideRecord("cmdb_ci_business_process");
-        grBP.addQuery("sys_id", grEnt.applies_to);
-        grBP.query();
-        if (grBP.next()) {
-            riskScore += grBP.u_sox_business_process_risk_rating_score;
-        }
-    }
+// Check if last year was a leap year and update end date accordingly
+if (new GlideDateTime(lastYear + "-02-29").getDate().indexOf("Invalid") === -1) {
+    lastYearEndDate = new GlideDateTime(lastYear + "-02-29 23:59:59");
+}
 
-    // Check if there are any issue created within last 1 year for this control. If it is then add 4
-    var grIssue = new GlideRecord('sn_grc_issue');
-    grIssue.addEncodedQuery('item=' + current.getUniqueValue() + '^opened_atRELATIVEGT@year@ago@1');
-    grIssue.query();
-    if (grIssue.hasNext()) {
-        riskScore += 4;
-    }
+var grIssue = new GlideRecord('sn_grc_issue');
+grIssue.addQuery('item', current.getUniqueValue());
+grIssue.addQuery('opened_at', '>=', lastYearStartDate);
+grIssue.addQuery('opened_at', '<=', lastYearEndDate);
+grIssue.query();
+if (grIssue.hasNext()) {
+    riskScore += 4;
+}
+// End STRY0984137
 
-    // Update the SOX risk score field value with finalized riskscore.
-    current.u_sox_risk_score = riskScore;
-
-    /*I want '4' to be added to the SOX Risk Score' on Control record, if any Issue record is created for the Control from March 1 last year to February 28 (February 29 if leap year) current year.
-
-Examples:
-1. When calculation happens on Jan 15 2025 then we need to consider Mar 1 2023 to Feb 29 2024.
-2. When calculation happens on Mar 3 2025 then we need to consider Mar 1 2024 to Feb 28 2025.
-
-Also, I want average 'SOX Risk Score' of the Assessment Instances which were taken in current year (March 1-Jan 31).
-I know this story is complete when '4' is added to the SOX Risk Score' on Control record, if any Issue record is created for the Control from March 1 last year to February 28 (February 29 if leap year) current year.
-
-Examples:
-1. When calculation happens on Jan 15 2025 then we need to consider Mar 1 2023 to Feb 29 2024.
-2. When calculation happens on Mar 3 2025 then we need to consider Mar 1 2024 to Feb 28 2025.
-
-Also, I want to add average 'SOX Risk Score' of the Assessment Instances which were taken in current year(March 1-Jan 31). 
-*/
-
-
-})(current, previous);
+// Update the SOX risk score field value with finalized riskscore.
+current.u_sox_risk_score = riskScore;
